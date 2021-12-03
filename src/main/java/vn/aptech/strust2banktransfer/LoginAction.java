@@ -4,9 +4,12 @@
 package vn.aptech.strust2banktransfer;
 
 import com.opensymphony.xwork2.ActionSupport;
+import com.opensymphony.xwork2.Preparable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.HashMap;
+import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import org.apache.struts2.ServletActionContext;
@@ -15,37 +18,41 @@ import org.apache.struts2.ServletActionContext;
  *
  * @author Nguyen Ba Tuan Anh <anhnbt.it@gmail.com>
  */
-public class LoginAction extends ActionSupport {
-    private Integer id;
+public class LoginAction extends ActionSupport implements Preparable {
+    private Integer accountIdRequest;
     private String username;
     private String password;
     private Double totalAmount;
+    private Map<Integer, String> accounts;
 
     @Override
     public String execute() throws Exception {
-        Connection conn = DBConnection.getConnection();
-        if (conn != null) {
-            String queryString = "SELECT * FROM users WHERE username = ? AND password = ?";
-            PreparedStatement pstmt = conn.prepareStatement(queryString);
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                HttpServletRequest request = ServletActionContext.getRequest();
-                HttpSession session = request.getSession();
-                
-                // Lưu trữ username vào trong session
-                session.setAttribute("loginedUsername", this.username);
-                this.id = rs.getInt("id");
-                this.totalAmount = rs.getDouble("totalAmount");
-                return SUCCESS;
-            } else {
-                addActionError(getText("error.login"));
-                return ERROR;
+        try (Connection conn = DBConnection.getConnection()) {
+            if (conn != null) {
+                String queryString = "SELECT * FROM users WHERE username = ? AND password = ?";
+                PreparedStatement pstmt = conn.prepareStatement(queryString);
+                pstmt.setString(1, username);
+                pstmt.setString(2, password);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    HttpServletRequest request = ServletActionContext.getRequest();
+                    HttpSession session = request.getSession();
+
+                    // Lưu trữ username vào trong session
+                    session.setAttribute("loginedUsername", this.username);
+                    this.accountIdRequest = rs.getInt("id");
+                    this.totalAmount = rs.getDouble("totalAmount");
+                    return SUCCESS;
+                } else {
+                    addActionError(getText("error.login"));
+                    return ERROR;
+                }
             }
-        } else {
-            return ERROR;
+        } catch (Exception e) {
+            // to do
+            System.out.println(e.getMessage());
         }
+        return ERROR;
     }
 
     @Override
@@ -58,12 +65,12 @@ public class LoginAction extends ActionSupport {
         }
     }
 
-    public Integer getId() {
-        return id;
+    public Integer getAccountIdRequest() {
+        return accountIdRequest;
     }
 
-    public void setId(Integer id) {
-        this.id = id;
+    public void setAccountIdRequest(Integer accountIdRequest) {
+        this.accountIdRequest = accountIdRequest;
     }
 
     public String getUsername() {
@@ -88,6 +95,37 @@ public class LoginAction extends ActionSupport {
 
     public void setTotalAmount(Double totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public Map<Integer, String> getAccounts() {
+        return accounts;
+    }
+
+    public void setAccounts(Map<Integer, String> accounts) {
+        this.accounts = accounts;
+    }
+
+    @Override
+    public void prepare() throws Exception {
+        accounts = new HashMap<>();
+        try (Connection conn = DBConnection.getConnection()) {
+            HttpServletRequest request = ServletActionContext.getRequest();
+            HttpSession session = request.getSession();
+            PreparedStatement pstmt = null;
+            if (session.getAttribute("loginedUsername") != null) {
+                // Bỏ qua user đang đăng nhập
+                pstmt = conn.prepareStatement("SELECT * FROM users WHERE username <> ? ORDER BY id DESC");
+                pstmt.setString(1, (String) session.getAttribute("loginedUsername"));
+            } else {
+                pstmt = conn.prepareStatement("SELECT * FROM users ORDER BY id DESC");
+            }
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                this.accounts.put(rs.getInt("id"), rs.getString("username"));
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
     
 }
