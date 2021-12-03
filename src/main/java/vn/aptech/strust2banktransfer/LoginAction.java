@@ -7,6 +7,9 @@ import com.opensymphony.xwork2.ActionSupport;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import org.apache.struts2.ServletActionContext;
 
 /**
  *
@@ -28,13 +31,16 @@ public class LoginAction extends ActionSupport {
             pstmt.setString(2, password);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                System.out.println("Login success");
+                HttpServletRequest request = ServletActionContext.getRequest();
+                HttpSession session = request.getSession();
+                
+                // Lưu trữ username vào trong session
+                session.setAttribute("loginedUsername", this.username);
                 this.id = rs.getInt("id");
                 this.totalAmount = rs.getDouble("totalAmount");
                 return SUCCESS;
             } else {
-                System.out.println("Wrong username and password");
-                addActionError("Wrong username and password");
+                addActionError(getText("error.login"));
                 return ERROR;
             }
         } else {

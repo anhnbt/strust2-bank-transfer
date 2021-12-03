@@ -14,7 +14,7 @@
     </head>
     <body>
         <h1>Transfer money</h1>
-        <p>Hello, <s:property value="username"></s:property>!</p>
+        <p>Hello, ${loginedUsername}!</p>
         <p>Your amount: <s:property value="totalAmount"></s:property></p>
         <s:form action="transfer">
             <s:hidden name="accountIdRequest" value="%{id}"></s:hidden>
